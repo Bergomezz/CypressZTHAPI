@@ -3,10 +3,13 @@
 context('Starting New API Module', () => {
   describe('Test with backend', () => {
     beforeEach('login into the app', () => {
-      cy.intercept('GET', '**/tags', { fixture: 'tags.json' }).as('tagsMochs')
+      cy.intercept(
+        { method: 'GET', path: 'tags' },
+        { fixture: 'tags.json' }
+      ).as('tagsMochs')
       cy.loginToApplication()
     })
-    it.skip('verify correct request and response', () => {
+    it('verify correct request and response', () => {
       cy.intercept('POST', '**/articles').as('postArticles')
 
       cy.contains('New Article').click()
@@ -20,15 +23,48 @@ context('Starting New API Module', () => {
         cy.writeFile('cypress/json/networkRes.json', xhr)
         console.log(xhr)
 
-        // expect(xhr.status).to.equal(200)
+        // expect(xhr.response.statusCode).to.equal(307)
         expect(xhr.request.body.article.body).to.equal(
           'This is the body of the article'
         )
-        // expect(xhr.response.body.article.description).to.equal('This is the body of the article')
+        // expect(xhr.response.body.article.description).to.equal(
+        //   'This is a description'
+        // )
       })
     })
 
-    it.skip('should gave tags with routing objects', () => {
+    it.only('intercepting and modifying the request and response', () => {
+      cy.intercept('POST', '**/articles', req => {
+        req.body.article.body = 'This is a body 2'
+      }).as('postArticles')
+
+      // cy.intercept('POST', '**/articles', req => {
+      //   req.reply(res => {
+      //     expect(res.body.article.description).to.equal('This is a description')
+      //     res.body.article.description = 'This is a description 2'
+      //   })
+      // }).as('postArticles')
+
+      cy.contains('New Article').click()
+      cy.get('[formcontrolname="title"]').type('This is an article')
+      cy.get('[formcontrolname="description"]').type('This is a description')
+      cy.get('[formcontrolname="body"]').type('This is the body of the article')
+      cy.contains('Publish Article').click()
+
+      cy.wait('@postArticles')
+      cy.get('@postArticles').then(xhr => {
+        cy.writeFile('cypress/json/networkRes.json', xhr)
+        console.log(xhr)
+
+        // expect(xhr.response.statusCode).to.equal(307)
+        expect(xhr.request.body.article.body).to.equal('This is a body 2')
+        // expect(xhr.response.body.article.description).to.equal(
+        //   'This is a description 2'
+        // )
+      })
+    })
+
+    it('should gave tags with routing objects', () => {
       cy.wait('@tagsMochs')
       cy.get('.tag-list')
         .should('contain', 'cypress')
@@ -55,6 +91,56 @@ context('Starting New API Module', () => {
       })
 
       cy.get('app-article-list button').eq(0).click().should('contain', '2820')
+    })
+
+    it.only('delete a bew article in a global feed', () => {
+      const userCredential = {
+        user: {
+          email: 'beogomezz@hotmail.com',
+          password: '123456789'
+        }
+      }
+
+      cy.request(
+        'POST',
+        'https://conduit.productionready.io/api/users/login',
+        userCredential
+      )
+        .its('body')
+        .then(body => {
+          const token = body.user.token
+          const bodyRequest = {
+            article: {
+              tagList: [],
+              title: 'Request from API',
+              description: 'API testing is easy',
+              body: 'OK, let`s go'
+            }
+          }
+
+          cy.request({
+            url: 'https://api.realworld.io/api/articles/?',
+            headers: { Authorization: `Token ${token}` },
+            method: 'POST',
+            body: bodyRequest
+          }).then(response => {
+            expect(response.status).to.equal(200)
+          })
+
+          cy.contains('Global Feed').click()
+          cy.get('.article-preview').first().click()
+          cy.get('.article-actions').contains('Delete Article').click()
+
+          cy.request({
+            url: 'https://api.realworld.io/api/articles/feed?limit=10&offset=0',
+            headers: { Authorization: `Token ${token}` },
+            method: 'GET'
+          })
+            .its('body')
+            .then(body => {
+              expect(body.article[0].title).not.equal('Request from API')
+            })
+        })
     })
   })
 })
