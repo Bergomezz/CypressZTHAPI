@@ -24,8 +24,32 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 Cypress.Commands.add('loginToApplication', () => {
-  cy.visit('/login')
-  cy.get('[placeholder="Email"]').type('beogomezz@hotmail.com')
-  cy.get('[placeholder="Password"').type('123456789')
-  cy.get('form').submit()
+  const userCredential = {
+    user: {
+      email: 'beogomezz@hotmail.com',
+      password: '123456789'
+    }
+  }
+
+  cy.request(
+    'POST',
+    'https://conduit.productionready.io/api/users/login',
+    userCredential
+  )
+    .its('body')
+    .then(body => {
+      const token = body.user.token
+      cy.wrap(token).as('token')
+
+      cy.visit('/', {
+        onBeforeLoad(win) {
+          win.localStorage.setItem('jwtToken', token)
+        }
+      })
+    })
+
+  // cy.visit('/login')
+  // cy.get('[placeholder="Email"]').type('beogomezz@hotmail.com')
+  // cy.get('[placeholder="Password"').type('123456789')
+  // cy.get('form').submit()
 })

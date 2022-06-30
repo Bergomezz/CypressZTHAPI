@@ -33,7 +33,7 @@ context('Starting New API Module', () => {
       })
     })
 
-    it.only('intercepting and modifying the request and response', () => {
+    it('intercepting and modifying the request and response', () => {
       cy.intercept('POST', '**/articles', req => {
         req.body.article.body = 'This is a body 2'
       }).as('postArticles')
@@ -93,54 +93,40 @@ context('Starting New API Module', () => {
       cy.get('app-article-list button').eq(0).click().should('contain', '2820')
     })
 
-    it.only('delete a bew article in a global feed', () => {
-      const userCredential = {
-        user: {
-          email: 'beogomezz@hotmail.com',
-          password: '123456789'
-        }
-      }
-
-      cy.request(
-        'POST',
-        'https://conduit.productionready.io/api/users/login',
-        userCredential
-      )
-        .its('body')
-        .then(body => {
-          const token = body.user.token
-          const bodyRequest = {
-            article: {
-              tagList: [],
-              title: 'Request from API',
-              description: 'API testing is easy',
-              body: 'OK, let`s go'
-            }
+    it('delete a bew article in a global feed', () => {
+      cy.get('@token').then(token => {
+        const bodyRequest = {
+          article: {
+            tagList: [],
+            title: 'Request from API',
+            description: 'API testing is easy',
+            body: 'OK, let`s go'
           }
+        }
 
-          cy.request({
-            url: 'https://api.realworld.io/api/articles/?',
-            headers: { Authorization: `Token ${token}` },
-            method: 'POST',
-            body: bodyRequest
-          }).then(response => {
-            expect(response.status).to.equal(200)
-          })
-
-          cy.contains('Global Feed').click()
-          cy.get('.article-preview').first().click()
-          cy.get('.article-actions').contains('Delete Article').click()
-
-          cy.request({
-            url: 'https://api.realworld.io/api/articles/feed?limit=10&offset=0',
-            headers: { Authorization: `Token ${token}` },
-            method: 'GET'
-          })
-            .its('body')
-            .then(body => {
-              expect(body.article[0].title).not.equal('Request from API')
-            })
+        cy.request({
+          url: 'https://conduit.productionready.io/api/articles/',
+          headers: { Authorization: `Token ` + token },
+          method: 'POST',
+          body: bodyRequest
+        }).then(response => {
+          expect(response.status).to.equal(200)
         })
+
+        cy.contains('Global Feed').click()
+        cy.get('.article-preview').first().click()
+        cy.get('.article-actions').contains('Delete Article').click()
+
+        cy.request({
+          url: 'https://api.realworld.io/api/articles/feed?limit=10&offset=0',
+          headers: { Authorization: `Token ` + token },
+          method: 'GET'
+        })
+          .its('body')
+          .then(body => {
+            expect(body.article[0].title).not.equal('Request from API')
+          })
+      })
     })
   })
 })
